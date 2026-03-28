@@ -2,6 +2,8 @@ const User = require("../models/user.model");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+const upload = require("../middlewares/upload.middleware");
+
 // Generate JWT
 const generateToken = (userID) => {
     return jwt.sign({ id: userID }, process.env.JWT_SECRET, {
@@ -32,7 +34,10 @@ const registerUser = async (req, res) => {
         }
 
         let role = "member";
-        if (adminInviteToken && adminInviteToken === process.env.ADMIN_INVITE_TOKEN) {
+        if (
+            adminInviteToken &&
+            adminInviteToken === process.env.ADMIN_INVITE_TOKEN
+        ) {
             role = "admin";
         }
 
@@ -62,7 +67,10 @@ const registerUser = async (req, res) => {
             res.status(400).json({ message: "Invalid user data" });
         }
     } catch (error) {
-        res.status(500).json({ message: "Server error", details: error.message });
+        res.status(500).json({
+            message: "Server error",
+            details: error.message,
+        });
     }
 };
 
@@ -120,20 +128,30 @@ const getUserProfile = async (req, res) => {
 // @access  Private
 const updateUserProfile = async (req, res) => {
     try {
-        if (!req.body || (Object.keys(req.body).length === 0 && req.body.constructor === Object)) {
-            return res.status(400).json({ message: "No data provided to update" });
+        if (
+            !req.body ||
+            (Object.keys(req.body).length === 0 &&
+                req.body.constructor === Object)
+        ) {
+            return res
+                .status(400)
+                .json({ message: "No data provided to update" });
         }
 
         const { username, email, password } = req.body;
         if (!username && !email && !password) {
-            return res.status(400).json({ message: "Please provide at least one field to update" });
+            return res.status(400).json({
+                message: "Please provide at least one field to update",
+            });
         }
 
         if (email && !/^\S+@\S+\.\S+$/.test(email)) {
             return res.status(400).json({ message: "Invalid email format" });
         }
         if (password && password.length < 6) {
-            return res.status(400).json({ message: "Password must be at least 6 characters" });
+            return res
+                .status(400)
+                .json({ message: "Password must be at least 6 characters" });
         }
 
         const user = await User.findById(req.user.id);
@@ -145,7 +163,7 @@ const updateUserProfile = async (req, res) => {
                 const salt = await bcrypt.genSalt(10);
                 user.password = await bcrypt.hash(password, salt);
             }
-            
+
             const updatedUser = await user.save();
 
             res.json({
@@ -160,32 +178,44 @@ const updateUserProfile = async (req, res) => {
             res.status(404).json({ message: "User not found" });
         }
     } catch (error) {
-        res.status(500).json({ message: "Server error", details: error.message });
+        res.status(500).json({
+            message: "Server error",
+            details: error.message,
+        });
     }
 };
 
 // @desc   Upload profile image
 // @route  POST /api/auth/profile/image
 // @access Private
-const uploadProfileImage = async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ message: "No file uploaded" });
-        }
+const uploadProfileImage = [
+    upload.single("file"),
+    async (req, res) => {
+        try {
+            if (!req.file) {
+                return res.status(400).json({ message: "No file uploaded" });
+            }
 
-        const user = await User.findById(req.user.id);
+            const user = await User.findById(req.user.id);
 
-        if (user) {
-            user.profileImageURL = `/uploads/${req.file.filename}`;
-            await user.save();
-            res.json({ message: "Profile image updated successfully", profileImageURL: user.profileImageURL });
-        } else {
-            res.status(404).json({ message: "User not found" });
+            if (user) {
+                user.profileImageURL = `/uploads/${req.file.filename}`;
+                await user.save();
+                res.json({
+                    message: "Profile image updated successfully",
+                    profileImageURL: user.profileImageURL,
+                });
+            } else {
+                res.status(404).json({ message: "User not found" });
+            }
+        } catch (error) {
+            res.status(500).json({
+                message: "Server error",
+                details: error.message,
+            });
         }
-    } catch (error) {
-        res.status(500).json({ message: "Server error", details: error.message });
-    }
-};
+    },
+];
 
 module.exports = {
     registerUser,
