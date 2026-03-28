@@ -10,7 +10,10 @@ const getDashboardData = async (req, res) => {
             status: "completed",
         });
         const pendingTasks = await Task.countDocuments({ status: "pending" });
-        res.json({ totalTasks, completedTasks, pendingTasks });
+        const inProgressTasks = await Task.countDocuments({
+            status: "in-progress",
+        });
+        res.json({ totalTasks, completedTasks, pendingTasks, inProgressTasks });
     } catch (error) {
         res.status(500).json({ message: "Server error" });
     }
@@ -31,7 +34,11 @@ const getUserDashboardData = async (req, res) => {
             assignedTo: userId,
             status: "pending",
         });
-        res.json({ totalTasks, completedTasks, pendingTasks });
+        const inProgressTasks = await Task.countDocuments({
+            assignedTo: userId,
+            status: "in-progress",
+        });
+        res.json({ totalTasks, completedTasks, pendingTasks, inProgressTasks });
     } catch (error) {
         res.status(500).json({ message: "Server error" });
     }
@@ -42,7 +49,9 @@ const getUserDashboardData = async (req, res) => {
 // @access  Private/Admin
 const getTasks = async (req, res) => {
     try {
-        const tasks = await Task.find().populate("assignedTo", "name email");
+        const tasks = await Task.find()
+            .populate("assignedTo", "name email")
+            .populate("createdBy", "name email");
         res.json(tasks);
     } catch (error) {
         res.status(500).json({ message: "Server error" });
@@ -54,10 +63,9 @@ const getTasks = async (req, res) => {
 // @access  Private/Admin
 const getTaskById = async (req, res) => {
     try {
-        const task = await Task.findById(req.params.id).populate(
-            "assignedTo",
-            "name email",
-        );
+        const task = await Task.findById(req.params.id)
+            .populate("assignedTo", "name email")
+            .populate("createdBy", "name email");
         if (!task) {
             return res.status(404).json({ message: "Task not found" });
         }
@@ -72,8 +80,30 @@ const getTaskById = async (req, res) => {
 // @access  Private/Admin
 const createTask = async (req, res) => {
     try {
-        const { title, description, assignedTo } = req.body;
-        const task = new Task({ title, description, assignedTo });
+        const {
+            title,
+            description,
+            assignedTo,
+            priority,
+            dueDate,
+            attachments,
+            todoCheckList,
+        } = req.body;
+        const createdBy = req.user && req.user._id;
+        if (!createdBy)
+            return res.status(401).json({ message: "Unauthorized" });
+        if (!dueDate)
+            return res.status(400).json({ message: "dueDate is required" });
+        const task = new Task({
+            title,
+            description,
+            assignedTo,
+            priority,
+            dueDate,
+            attachments,
+            todoCheckList,
+            createdBy,
+        });
         await task.save();
         res.status(201).json(task);
     } catch (error) {
@@ -86,7 +116,15 @@ const createTask = async (req, res) => {
 // @access  Private/Admin
 const updateTask = async (req, res) => {
     try {
-        const { title, description, assignedTo } = req.body;
+        const {
+            title,
+            description,
+            assignedTo,
+            priority,
+            dueDate,
+            attachments,
+            todoCheckList,
+        } = req.body;
         const task = await Task.findById(req.params.id);
         if (!task) {
             return res.status(404).json({ message: "Task not found" });
@@ -94,6 +132,10 @@ const updateTask = async (req, res) => {
         task.title = title || task.title;
         task.description = description || task.description;
         task.assignedTo = assignedTo || task.assignedTo;
+        task.priority = priority || task.priority;
+        task.dueDate = dueDate || task.dueDate;
+        task.attachments = attachments || task.attachments;
+        if (todoCheckList !== undefined) task.todoCheckList = todoCheckList;
         await task.save();
         res.json(task);
     } catch (error) {
@@ -140,12 +182,12 @@ const updateTaskStatus = async (req, res) => {
 // @access  Private/Admin
 const updateTaskChecklist = async (req, res) => {
     try {
-        const { todos } = req.body;
+        const { todoCheckList } = req.body;
         const task = await Task.findById(req.params.id);
         if (!task) {
             return res.status(404).json({ message: "Task not found" });
         }
-        task.todos = todos;
+        task.todoCheckList = todoCheckList;
         await task.save();
         res.json(task);
     } catch (error) {
