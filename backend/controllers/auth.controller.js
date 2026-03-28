@@ -13,9 +13,12 @@ const generateToken = (userID) => {
 // @route   POST /api/auth/register
 // @access  Public
 const registerUser = async (req, res) => {
-    const { name, email, password } = req.body;
+    const { username, email, password } = req.body;
 
-    if (!name || !email || !password) {
+    const profileImageURL = req.body.profileImageURL || undefined;
+    const adminInviteToken = req.body.adminInviteToken || undefined;
+
+    if (!username || !email || !password) {
         return res
             .status(400)
             .json({ message: "Please provide all required fields" });
@@ -23,30 +26,43 @@ const registerUser = async (req, res) => {
 
     try {
         const existingUser = await User.findOne({ email });
+
         if (existingUser) {
             return res.status(400).json({ message: "User already exists" });
         }
+
+        let role = "member";
+        if (adminInviteToken && adminInviteToken === process.env.ADMIN_INVITE_TOKEN) {
+            role = "admin";
+        }
+
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        const user = await User.create({
-            name,
+        const userData = {
+            username,
             email,
             password: hashedPassword,
-        });
+            role: role,
+        };
+        if (profileImageURL) userData.profileImageURL = profileImageURL;
+
+        const user = await User.create(userData);
 
         if (user) {
             res.status(201).json({
                 _id: user._id,
-                name: user.name,
+                username: user.username,
                 email: user.email,
+                role: user.role,
+                profileImageURL: user.profileImageURL,
                 token: generateToken(user._id),
             });
         } else {
             res.status(400).json({ message: "Invalid user data" });
         }
     } catch (error) {
-        res.status(500).json({ message: "Server error" });
+        res.status(500).json({ message: "Server error", details: error.message });
     }
 };
 
@@ -68,8 +84,10 @@ const loginUser = async (req, res) => {
         if (user && (await bcrypt.compare(password, user.password))) {
             res.json({
                 _id: user._id,
-                name: user.name,
+                username: user.username,
                 email: user.email,
+                role: user.role,
+                profileImageURL: user.profileImageURL,
                 token: generateToken(user._id),
             });
         } else {
@@ -102,28 +120,70 @@ const getUserProfile = async (req, res) => {
 // @access  Private
 const updateUserProfile = async (req, res) => {
     try {
+        if (!req.body || (Object.keys(req.body).length === 0 && req.body.constructor === Object)) {
+            return res.status(400).json({ message: "No data provided to update" });
+        }
+
+        const { username, email, password } = req.body;
+        if (!username && !email && !password) {
+            return res.status(400).json({ message: "Please provide at least one field to update" });
+        }
+
+        if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+            return res.status(400).json({ message: "Invalid email format" });
+        }
+        if (password && password.length < 6) {
+            return res.status(400).json({ message: "Password must be at least 6 characters" });
+        }
+
         const user = await User.findById(req.user.id);
 
         if (user) {
-            user.name = req.body.name || user.name;
-            user.email = req.body.email || user.email;
-            if (req.body.password) {
+            if (username) user.username = username;
+            if (email) user.email = email;
+            if (password) {
                 const salt = await bcrypt.genSalt(10);
-                user.password = await bcrypt.hash(req.body.password, salt);
+                user.password = await bcrypt.hash(password, salt);
             }
+            
             const updatedUser = await user.save();
 
             res.json({
                 _id: updatedUser._id,
-                name: updatedUser.name,
+                username: updatedUser.username,
                 email: updatedUser.email,
+                role: updatedUser.role,
+                profileImageURL: updatedUser.profileImageURL,
                 token: generateToken(updatedUser._id),
             });
         } else {
             res.status(404).json({ message: "User not found" });
         }
     } catch (error) {
-        res.status(500).json({ message: "Server error" });
+        res.status(500).json({ message: "Server error", details: error.message });
+    }
+};
+
+// @desc   Upload profile image
+// @route  POST /api/auth/profile/image
+// @access Private
+const uploadProfileImage = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: "No file uploaded" });
+        }
+
+        const user = await User.findById(req.user.id);
+
+        if (user) {
+            user.profileImageURL = `/uploads/${req.file.filename}`;
+            await user.save();
+            res.json({ message: "Profile image updated successfully", profileImageURL: user.profileImageURL });
+        } else {
+            res.status(404).json({ message: "User not found" });
+        }
+    } catch (error) {
+        res.status(500).json({ message: "Server error", details: error.message });
     }
 };
 
@@ -132,4 +192,5 @@ module.exports = {
     loginUser,
     getUserProfile,
     updateUserProfile,
+    uploadProfileImage,
 };
