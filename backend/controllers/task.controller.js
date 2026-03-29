@@ -367,6 +367,69 @@ const updateTaskChecklist = async (req, res) => {
     }
 };
 
+// @desc    Get my tasks (for regular users)
+// @route   GET /api/tasks/my-tasks
+// @access  Private
+const getMyTasks = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const tasks = await Task.find({ assignedTo: userId })
+            .populate("createdBy", "username email")
+            .sort({ createdAt: -1 });
+
+        res.json(tasks);
+    } catch (error) {
+        res.status(500).json({
+            message: "Server error",
+            details: error.message,
+        });
+    }
+};
+
+// @desc    Get my dashboard data (for regular users)
+// @route   GET /api/tasks/my-dashboard
+// @access  Private
+const getMyDashboard = async (req, res) => {
+    try {
+        const userId = req.user._id;
+
+        const totalTasks = await Task.countDocuments({ assignedTo: userId });
+        const completedTasks = await Task.countDocuments({
+            assignedTo: userId,
+            status: "completed",
+        });
+        const pendingTasks = await Task.countDocuments({
+            assignedTo: userId,
+            status: "pending",
+        });
+        const inProgressTasks = await Task.countDocuments({
+            assignedTo: userId,
+            status: "in-progress",
+        });
+
+        const recentTasks = await Task.find({ assignedTo: userId })
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .populate("createdBy", "username email")
+            .select("title status priority dueDate createdAt progress");
+
+        res.json({
+            statistics: {
+                totalTasks,
+                pendingTasks,
+                completedTasks,
+                inProgressTasks,
+            },
+            recentTasks,
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: "Server error",
+            details: error.message,
+        });
+    }
+};
+
 module.exports = {
     getDashboardData,
     getUserDashboardData,
@@ -377,4 +440,6 @@ module.exports = {
     deleteTask,
     updateTaskStatus,
     updateTaskChecklist,
+    getMyTasks,
+    getMyDashboard,
 };
