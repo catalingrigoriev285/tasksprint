@@ -13,6 +13,7 @@ const getDashboardData = async (req, res) => {
         const inProgressTasks = await Task.countDocuments({
             status: "in-progress",
         });
+
         res.json({ totalTasks, completedTasks, pendingTasks, inProgressTasks });
     } catch (error) {
         res.status(500).json({ message: "Server error" });
@@ -25,6 +26,7 @@ const getDashboardData = async (req, res) => {
 const getUserDashboardData = async (req, res) => {
     try {
         const userId = req.user._id;
+
         const totalTasks = await Task.countDocuments({ assignedTo: userId });
         const completedTasks = await Task.countDocuments({
             assignedTo: userId,
@@ -38,6 +40,7 @@ const getUserDashboardData = async (req, res) => {
             assignedTo: userId,
             status: "in-progress",
         });
+
         res.json({ totalTasks, completedTasks, pendingTasks, inProgressTasks });
     } catch (error) {
         res.status(500).json({ message: "Server error" });
@@ -52,6 +55,7 @@ const getTasks = async (req, res) => {
         const tasks = await Task.find()
             .populate("assignedTo", "name email")
             .populate("createdBy", "name email");
+
         res.json(tasks);
     } catch (error) {
         res.status(500).json({ message: "Server error" });
@@ -66,12 +70,14 @@ const getTaskById = async (req, res) => {
         const task = await Task.findById(req.params.id)
             .populate("assignedTo", "name email")
             .populate("createdBy", "name email");
+
         if (!task) {
             return res.status(404).json({ message: "Task not found" });
         }
+
         res.json(task);
     } catch (error) {
-        res.status(500).json({ message: "Server error" });
+        res.status(500).json({ message: "Server error", details: error.message });
     }
 };
 
@@ -89,11 +95,14 @@ const createTask = async (req, res) => {
             attachments,
             todoCheckList,
         } = req.body;
+
         const createdBy = req.user && req.user._id;
         if (!createdBy)
             return res.status(401).json({ message: "Unauthorized" });
+
         if (!dueDate)
             return res.status(400).json({ message: "dueDate is required" });
+
         const task = new Task({
             title,
             description,
@@ -105,9 +114,10 @@ const createTask = async (req, res) => {
             createdBy,
         });
         await task.save();
+
         res.status(201).json(task);
     } catch (error) {
-        res.status(500).json({ message: "Server error" });
+        res.status(500).json({ message: "Server error", details: error.message });
     }
 };
 
@@ -125,10 +135,12 @@ const updateTask = async (req, res) => {
             attachments,
             todoCheckList,
         } = req.body;
+
         const task = await Task.findById(req.params.id);
         if (!task) {
             return res.status(404).json({ message: "Task not found" });
         }
+
         task.title = title || task.title;
         task.description = description || task.description;
         task.assignedTo = assignedTo || task.assignedTo;
@@ -136,10 +148,11 @@ const updateTask = async (req, res) => {
         task.dueDate = dueDate || task.dueDate;
         task.attachments = attachments || task.attachments;
         if (todoCheckList !== undefined) task.todoCheckList = todoCheckList;
+
         await task.save();
         res.json(task);
     } catch (error) {
-        res.status(500).json({ message: "Server error" });
+        res.status(500).json({ message: "Server error", details: error.message });
     }
 };
 
@@ -152,10 +165,11 @@ const deleteTask = async (req, res) => {
         if (!task) {
             return res.status(404).json({ message: "Task not found" });
         }
-        await task.remove();
+
+        await task.deleteOne();
         res.json({ message: "Task removed" });
     } catch (error) {
-        res.status(500).json({ message: "Server error" });
+        res.status(500).json({ message: "Server error", details: error.message });
     }
 };
 
@@ -165,15 +179,17 @@ const deleteTask = async (req, res) => {
 const updateTaskStatus = async (req, res) => {
     try {
         const { status } = req.body;
+
         const task = await Task.findById(req.params.id);
         if (!task) {
             return res.status(404).json({ message: "Task not found" });
         }
         task.status = status;
+
         await task.save();
         res.json(task);
     } catch (error) {
-        res.status(500).json({ message: "Server error" });
+        res.status(500).json({ message: "Server error", details: error.message });
     }
 };
 
@@ -183,15 +199,17 @@ const updateTaskStatus = async (req, res) => {
 const updateTaskChecklist = async (req, res) => {
     try {
         const { todoCheckList } = req.body;
+
         const task = await Task.findById(req.params.id);
         if (!task) {
             return res.status(404).json({ message: "Task not found" });
         }
         task.todoCheckList = todoCheckList;
+
         await task.save();
         res.json(task);
     } catch (error) {
-        res.status(500).json({ message: "Server error" });
+        res.status(500).json({ message: "Server error", details: error.message });
     }
 };
 
