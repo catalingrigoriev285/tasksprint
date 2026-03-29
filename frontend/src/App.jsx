@@ -8,6 +8,7 @@ import AdminDashboard from "./pages/Admin/AdminDashboard";
 import ManageTasks from "./pages/Admin/Tasks/ManageTasks";
 import CreateTask from "./pages/Admin/Tasks/CreateTask";
 import ManageUsers from "./pages/Admin/Users/ManageUsers";
+import CreateUser from "./pages/Admin/Users/CreateUser";
 
 import UserDashboard from "./pages/Users/UserDashboard";
 import MyTasks from "./pages/Users/Tasks/MyTasks";
@@ -42,6 +43,11 @@ export const App = () => {
                         />
 
                         <Route path="/admin/users" element={<ManageUsers />} />
+                        
+                        <Route
+                            path="/admin/create-user"
+                            element={<CreateUser />}
+                        />
                     </Route>
 
                     {/* User Routes */}

@@ -170,8 +170,8 @@ const getUserDashboardData = async (req, res) => {
 const getTasks = async (req, res) => {
     try {
         const tasks = await Task.find()
-            .populate("assignedTo", "name email")
-            .populate("createdBy", "name email");
+            .populate("assignedTo", "username email")
+            .populate("createdBy", "username email");
 
         res.json(tasks);
     } catch (error) {
@@ -185,8 +185,8 @@ const getTasks = async (req, res) => {
 const getTaskById = async (req, res) => {
     try {
         const task = await Task.findById(req.params.id)
-            .populate("assignedTo", "name email")
-            .populate("createdBy", "name email");
+            .populate("assignedTo", "username email")
+            .populate("createdBy", "username email");
 
         if (!task) {
             return res.status(404).json({ message: "Task not found" });

@@ -14,6 +14,8 @@ export const AUTH_ENDPOINTS = {
 export const USER_ENDPOINTS = {
   GET_ALL: `${API_BASE_URL}/users`,
   GET_BY_ID: (id) => `${API_BASE_URL}/users/${id}`,
+  CREATE: `${API_BASE_URL}/users`,
+  UPDATE: (id) => `${API_BASE_URL}/users/${id}`,
   DELETE: (id) => `${API_BASE_URL}/users/${id}`,
 };
 

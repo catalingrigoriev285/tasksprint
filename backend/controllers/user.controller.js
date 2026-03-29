@@ -73,8 +73,87 @@ const deleteUser = async (req, res) => {
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
-        await user.remove();
+        await user.deleteOne();
         res.json({ message: "User removed" });
+    } catch (error) {
+        res.status(500).json({
+            message: "Server error",
+            details: error.message,
+        });
+    }
+};
+
+// @desc    Create user (admin only)
+// @route   POST /api/users
+// @access  Private/Admin
+const createUser = async (req, res) => {
+    try {
+        const { username, email, password, role } = req.body;
+
+        if (!username || !email || !password) {
+            return res.status(400).json({ message: "Please provide all required fields" });
+        }
+
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ message: "User already exists" });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const user = await User.create({
+            username,
+            email,
+            password: hashedPassword,
+            role: role || 'member'
+        });
+
+        res.status(201).json({
+            _id: user._id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            createdAt: user.createdAt
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: "Server error",
+            details: error.message,
+        });
+    }
+};
+
+// @desc    Update user (admin only)
+// @route   PUT /api/users/:id
+// @access  Private/Admin
+const updateUser = async (req, res) => {
+    try {
+        const { username, email, password, role } = req.body;
+
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        if (username) user.username = username;
+        if (email) user.email = email;
+        if (role) user.role = role;
+        
+        if (password) {
+            const salt = await bcrypt.genSalt(10);
+            user.password = await bcrypt.hash(password, salt);
+        }
+
+        await user.save();
+
+        res.json({
+            _id: user._id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            createdAt: user.createdAt
+        });
     } catch (error) {
         res.status(500).json({
             message: "Server error",
@@ -86,5 +165,7 @@ const deleteUser = async (req, res) => {
 module.exports = {
     getUsers,
     getUserById,
+    createUser,
+    updateUser,
     deleteUser,
 };
